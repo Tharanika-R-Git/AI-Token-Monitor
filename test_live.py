@@ -1,61 +1,48 @@
-from ai_token_monitor import TokenMonitor, ChatManager, InMemoryStorage
+import os
+from openai import OpenAI
+from dotenv import load_dotenv
+from ai_token_monitor import TokenMonitor, ChatManager
+from ai_token_monitor.utils import normalize_response, extract_reply
 
-def main():
-    # Create objects
-    monitor = TokenMonitor()
-    chat_manager = ChatManager()
-    storage = InMemoryStorage()
+# Load environment variables
+load_dotenv()
 
-    # Create a chat
-    chat_id = chat_manager.create_chat("user_123")
+# Initialize OpenAI client with OpenRouter base URL
+client = OpenAI(
+    api_key=os.getenv("OPENROUTER_API_KEY"),
+    base_url="https://openrouter.ai/api/v1"
+)
 
-    # Add sample messages
-    chat_manager.add_message(chat_id, "user", "Hello, tell me about AI token monitoring.")
-    chat_manager.add_message(chat_id, "assistant", "Sure, I can help with that.")
+# Initialize monitor and chat manager
+monitor = TokenMonitor()
+chat_manager = ChatManager()
 
-    # Fake OpenAI-style response
-    fake_response = {
-        "usage": {
-            "prompt_tokens": 120,
-            "completion_tokens": 80,
-            "total_tokens": 200
-        },
-        "choices": [
-            {
-                "message": {
-                    "content": "This is a sample assistant reply."
-                }
-            }
-        ]
-    }
+# Create a new chat session
+chat_id = chat_manager.create_chat("user_123")
 
-    # Use a model that exists in your pricing table
-    model_name = "openrouter/free"
+# Add user message
+user_message = "Hello! What is the capital of France?"
+chat_manager.add_message(chat_id, "user", user_message)
+use_model="openrouter/free"
+# Call OpenRouter API
+response = client.chat.completions.create(
+    model=use_model,
+    messages=[
+        {"role": "user", "content": user_message}
+    ]
+)
 
-    # Track usage
-    log = monitor.track(
-        response=fake_response,
-        model=model_name,
-        chat_manager=chat_manager,
-        chat_id=chat_id
-    )
+# Normalize and extract response
+data = normalize_response(response.model_dump())
+answer = extract_reply(data)
 
-    # Save log
-    storage.save(log)
+# Track tokens
+monitor.track(data, model=use_model, chat_manager=chat_manager, chat_id=chat_id)
 
-    # Print results
-    print("=== TRACK LOG ===")
-    print(log)
+# Add assistant message to chat
+chat_manager.add_message(chat_id, "assistant", answer)
 
-    print("\n=== MONITOR SUMMARY ===")
-    print(monitor.summary())
-
-    print("\n=== CHAT SUMMARY ===")
-    print(chat_manager.summary(chat_id))
-
-    print("\n=== SAVED RECORDS ===")
-    print(storage.get_all())
-
-
-if __name__ == "__main__":
-    main()
+# Print summary
+print("Answer:", answer)
+print("\nToken Summary:")
+print(monitor.summary())
