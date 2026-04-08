@@ -9,6 +9,9 @@ Track token usage and cost for OpenRouter, Groq, and OpenAI — with FastAPI int
 - ✅ FastAPI integration with middleware
 - ✅ Production logging
 
+## Output
+![Output](./output.jpg)
+
 ## Install
 
 ```bash
